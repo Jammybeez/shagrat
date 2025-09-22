@@ -1,5 +1,7 @@
+
 import { db } from "@/lib/db";
 import { getRecommendedUserId, recordPurchase } from "./actions";
+import { Button } from "@/components/ui/button"
 
 export const dynamic = "force-dynamic"; // ensure fresh data during the demo
 
@@ -21,7 +23,6 @@ export default async function Home() {
         </a>
       </header>
 
-      {/* Recommend + Override form */}
       <section className="p-4 border rounded space-y-3">
         <h2 className="font-semibold">Who should go next?</h2>
         <p className="text-sm text-gray-600">
@@ -44,14 +45,14 @@ export default async function Home() {
             ))}
           </select>
 
-          <button
+          <Button
             type="submit"
-            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
+            className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50 cursor-pointer"
             disabled={!users.length}
             title="Record purchase for selected user"
           >
             Record Purchase
-          </button>
+          </Button>
 
           {recommendedId && (
             <span className="text-xs px-2 py-1 rounded bg-amber-100 border">
@@ -61,7 +62,6 @@ export default async function Home() {
         </form>
       </section>
 
-      {/* Users table */}
       <section className="overflow-x-auto">
         <table className="min-w-full border rounded overflow-hidden">
           <thead className="bg-gray-500">
