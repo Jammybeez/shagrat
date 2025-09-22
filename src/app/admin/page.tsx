@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { addUser, updateUser, deleteUser } from "../actions";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -26,9 +27,9 @@ export default async function AdminPage() {
             className="border p-2 rounded flex-1"
             required
           />
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
+          <Button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
             Add
-          </button>
+          </Button>
         </form>
       </section>
 
@@ -72,9 +73,9 @@ export default async function AdminPage() {
                       className="border p-1 rounded"
                       required
                     />
-                    <button className="bg-emerald-600 text-white px-3 py-1 rounded">
+                    <Button className="bg-emerald-600 text-white px-3 py-1 rounded">
                       Save
-                    </button>
+                    </Button>
                   </form>
                 </td>
                 <td className="p-2 border-b"></td>
@@ -82,9 +83,9 @@ export default async function AdminPage() {
                 <td className="p-2 border-b">
                   <form action={deleteUser}>
                     <input type="hidden" name="id" value={u.id} />
-                    <button className="bg-red-600 text-white px-3 py-1 rounded">
+                    <Button className="bg-red-600 text-white px-3 py-1 rounded">
                       Delete
-                    </button>
+                    </Button>
                   </form>
                 </td>
               </tr>
