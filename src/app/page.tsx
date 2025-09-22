@@ -31,10 +31,10 @@ export default async function Home() {
 
         <form
           action={recordPurchase}
-          className="flex items-center gap-3" /* key also works here */
+          className="flex items-center gap-3"
         >
           <select
-            key={recommendedId ?? "none"} // 👈 force remount when recommendation changes
+            key={recommendedId ?? "none"}
             name="userId"
             defaultValue={recommendedId ?? ""}
             className="border rounded p-2 min-w-56"

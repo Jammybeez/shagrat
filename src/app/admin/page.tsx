@@ -1,21 +1,20 @@
 import { db } from "@/lib/db";
 import { addUser, updateUser, deleteUser } from "../actions";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
+
+function toLocalDatetimeValue(date: Date) {
+  const d = new Date(date);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
 
 export default async function AdminPage() {
   const users = await db.user.findMany({ orderBy: { id: "asc" } });
 
   return (
     <main className="p-6 space-y-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Admin</h1>
-        <Link href="/" className="text-sm underline underline-offset-4 hover:opacity-80">
-          ← Back to main
-        </Link>
-      </header>
 
       {/* Add user */}
       <section className="p-4 border rounded space-y-3 max-w-lg">
@@ -33,7 +32,6 @@ export default async function AdminPage() {
         </form>
       </section>
 
-      {/* Edit users */}
       <section className="overflow-x-auto">
         <table className="min-w-full border rounded overflow-hidden">
           <thead className="bg-gray-500">
@@ -97,10 +95,5 @@ export default async function AdminPage() {
   );
 }
 
-// helpers
-function toLocalDatetimeValue(date: Date) {
-  // convert Date -> yyyy-MM-ddTHH:mm for <input type="datetime-local">
-  const d = new Date(date);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
+
+
