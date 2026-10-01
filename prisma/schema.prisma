@@ -17,20 +17,25 @@ model Member {
     name          String
     favouriteMilk String?
     excuse        String?
+    // Avatar id: a file name (no extension) in public/avatars, see src/lib/avatars.ts.
+    avatar        String?
     // Retired members keep their history but are never picked again.
     active        Boolean  @default(true)
     createdAt     DateTime @default(now())
     picks         Pick[]
 }
 
-/// One buyer per week. weekOf is the Sunday that starts the week (YYYY-MM-DD).
+/// A buyer for a week. weekOf is the Sunday that starts the week (YYYY-MM-DD).
+/// round 0 is the Sunday pick; 1, 2, ... are extra buyers summoned with "More milk now!".
 model Pick {
     id        Int      @id @default(autoincrement())
-    weekOf    String   @unique
+    weekOf    String
+    round     Int      @default(0)
     decree    String
     memberId  Int
     member    Member   @relation(fields: [memberId], references: [id])
     createdAt DateTime @default(now())
 
+    @@unique([weekOf, round])
     @@index([memberId])
 }

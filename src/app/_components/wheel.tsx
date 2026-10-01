@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SIZE = 320;
 const C = SIZE / 2;
@@ -14,75 +14,78 @@ function rim(deg: number, r = R) {
   return `${C + r * Math.sin(rad)} ${C - r * Math.cos(rad)}`;
 }
 
-function seenKey(pickId: number) {
-  return `shagrat:spun:${pickId}`;
-}
-
 /**
  * The Wheel of Doom. Purely theatrical: the buyer is decided server-side and the wheel is rigged
- * to land on them, as all the best wheels are.
+ * to land on them, as all the best wheels are. Remount it (via `key`) for each pick.
  */
 export function Wheel({
-  pickId,
   names,
   winnerIndex,
-  onRevealed,
+  alreadySpun,
+  autoSpin,
+  onSpun,
+  small = false,
 }: {
-  pickId: number;
   names: string[];
   winnerIndex: number;
-  onRevealed: (revealed: boolean) => void;
+  /** This viewer has watched this pick's spin before, so rest on the result. */
+  alreadySpun: boolean;
+  /** Spin as soon as it mounts, e.g. straight after "More milk now!". */
+  autoSpin: boolean;
+  onSpun: () => void;
+  /** The little spinner used for "More milk now!" extras. */
+  small?: boolean;
 }) {
   const seg = 360 / names.length;
-  // Rotation that puts the middle of the winning segment under the pointer, with some wobble.
-  const [landing] = useState(
-    () => -(winnerIndex * seg + seg / 2) + (Math.random() - 0.5) * seg * 0.6,
-  );
-  const [rotation, setRotation] = useState(0);
+  // Where the wheel stops: the middle of the winning slice under the pointer, nudged by a wobble
+  // fixed at mount. Worked out on every render, so it stays right if the names change.
+  const [wobble] = useState(() => (Math.random() - 0.5) * 0.6);
+  const landing = -(winnerIndex * seg + seg / 2) + wobble * seg;
+  // Full turns spun so far. The wheel sits level until its first spin, so it gives nothing away.
+  const [turns, setTurns] = useState(0);
   const [state, setState] = useState<"idle" | "spinning" | "done">("idle");
+  const rotation = state === "idle" ? 0 : turns * 360 + landing;
+  const started = useRef(false);
 
-  // Anyone who has already watched this pick's spin goes straight to the result.
   useEffect(() => {
-    let seen = false;
-    try {
-      seen = localStorage.getItem(seenKey(pickId)) !== null;
-    } catch {}
-    if (seen) {
-      setRotation(landing);
+    if (started.current) return;
+    if (alreadySpun) {
+      started.current = true;
       setState("done");
-      onRevealed(true);
+    } else if (autoSpin) {
+      // Let the level wheel paint first. If it mounts and spins before the browser has drawn it,
+      // there is no starting angle to animate from, and it just jumps to the result.
+      const t = setTimeout(spin, 50);
+      return () => clearTimeout(t);
     }
-  }, [pickId, landing, onRevealed]);
+  }, [alreadySpun, autoSpin]);
 
   function spin() {
+    started.current = true;
     setState("spinning");
-    onRevealed(false);
-    setRotation((r) => r - (r % 360) + 360 * 8 + landing);
+    setTurns((t) => t + 8);
     setTimeout(() => {
       setState("done");
-      onRevealed(true);
-      try {
-        localStorage.setItem(seenKey(pickId), "1");
-      } catch {}
+      onSpun();
     }, SPIN_MS);
   }
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className={`flex flex-col items-center ${small ? "gap-4" : "gap-6"}`}>
       <div className="relative">
         {/* Pointer: a jagged orc blade */}
         <svg
           className="absolute left-1/2 -top-3 z-10 -translate-x-1/2 drop-shadow-[0_0_6px_#f97316]"
-          width="28"
-          height="40"
+          width={small ? 20 : 28}
+          height={small ? 29 : 40}
           viewBox="0 0 28 40"
         >
           <path d="M2 0 H26 L18 14 L22 16 L14 40 L6 16 L10 14 Z" fill="#d6d3d1" stroke="#0c0a09" strokeWidth="2" />
         </svg>
 
         <svg
-          width={SIZE}
-          height={SIZE}
+          width={small ? SIZE * 0.65 : SIZE}
+          height={small ? SIZE * 0.65 : SIZE}
           viewBox={`0 0 ${SIZE} ${SIZE}`}
           className="max-w-[85vw] h-auto rounded-full shadow-[0_0_60px_-5px] shadow-red-700/60"
           style={{
@@ -116,7 +119,7 @@ export function Wheel({
                   y={C}
                   textAnchor="end"
                   dominantBaseline="middle"
-                  className="fill-stone-100 font-display text-[13px] font-bold"
+                  className={`fill-stone-100 font-display font-bold ${small ? "text-[17px]" : "text-[13px]"}`}
                 >
                   {name.length > 14 ? `${name.slice(0, 13)}…` : name}
                 </text>
@@ -133,13 +136,21 @@ export function Wheel({
       {state !== "spinning" && (
         <button
           onClick={spin}
-          className="rounded-md bg-red-800 px-6 py-3 font-display text-lg font-bold tracking-wide text-stone-100 transition hover:bg-red-700"
+          className={`rounded-md bg-red-800 font-display font-bold tracking-wide text-stone-100 transition hover:bg-red-700 ${
+            small ? "px-4 py-2 text-base" : "px-6 py-3 text-lg"
+          }`}
         >
-          {state === "idle" ? "Spin the Wheel of Doom" : "Spin it again (it won't help)"}
+          {state === "idle"
+            ? small
+              ? "Spin the Little Wheel"
+              : "Spin the Wheel of Doom"
+            : "Spin it again (it won't help)"}
         </button>
       )}
       {state === "spinning" && (
-        <p className="font-display text-lg text-ember animate-pulse">The Eye is choosing...</p>
+        <p className="font-display text-lg text-ember animate-pulse">
+          {small ? "The Eye looks again..." : "The Eye is choosing..."}
+        </p>
       )}
     </div>
   );

@@ -42,9 +42,27 @@ export function checkPassword(attempt: string) {
   return safeEqual(attempt, env.SITE_PASSWORD);
 }
 
+/** For the /join invite link. Always false when SITE_INVITE_KEY isn't set. */
+export function checkInviteKey(attempt: string) {
+  return !!env.SITE_INVITE_KEY && safeEqual(attempt, env.SITE_INVITE_KEY);
+}
+
 export async function createSessionToken() {
   const expiry = String(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
   return `${expiry}.${await hmac(expiry)}`;
+}
+
+/** A fresh session cookie, ready for `cookies().set(...)`. */
+export async function newSessionCookie() {
+  return {
+    name: SESSION_COOKIE,
+    value: await createSessionToken(),
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: env.NODE_ENV === "production",
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    path: "/",
+  };
 }
 
 export async function verifySessionToken(token: string | undefined | null) {

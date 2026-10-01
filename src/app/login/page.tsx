@@ -1,11 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { login } from "./actions";
 
 export default function LoginPage() {
   const [error, action, pending] = useActionState(login, null);
+  // Set by /join when someone arrives with a bad or out-of-date invite link.
+  const [badInvite, setBadInvite] = useState(false);
+  useEffect(() => {
+    setBadInvite(new URLSearchParams(window.location.search).get("invite") === "bad");
+  }, []);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-4">
@@ -40,6 +45,12 @@ export default function LoginPage() {
           {pending ? "The gate creaks..." : "Enter Cirith Ungol"}
         </button>
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {badInvite && !error && (
+          <p className="text-sm text-red-400">
+            That invite is forged or stale, maggot. Ask the warband for a fresh one, or speak the
+            password.
+          </p>
+        )}
       </form>
     </main>
   );

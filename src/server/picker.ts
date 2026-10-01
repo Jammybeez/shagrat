@@ -35,74 +35,134 @@ export function currentWeekOf(now = new Date()) {
   return today.toISOString().slice(0, 10);
 }
 
-function pickDecree(name: string) {
-  const template = DECREES[Math.floor(Math.random() * DECREES.length)]!;
+const MORE_DECREES = [
+  "The first pint was not enough. Shagrat demands more. {name}, to the shops!",
+  "The warband is thirsty and the jug is dry. {name} is sent to refill it.",
+  "More milk! MORE! {name}, you heard the Captain.",
+  "One does not simply run out of milk. {name} will see to it.",
+  "A second runner is needed, and {name} looked the least busy.",
+];
+
+function pickDecree(name: string, round: number) {
+  const decrees = round === 0 ? DECREES : MORE_DECREES;
+  const template = decrees[Math.floor(Math.random() * decrees.length)]!;
   return template.replaceAll("{name}", name);
 }
 
-/**
- * Chooses a buyer for `weekOf`. Fair-ish: picks randomly among the active members who have bought
- * the fewest times, avoiding last week's buyer (and `excludeId`) whenever anyone else is available.
- */
-async function choose(db: Db, weekOf: string, excludeId?: number) {
-  const members = await db.member.findMany({
-    where: { active: true },
-    include: { _count: { select: { picks: true } } },
-  });
-  if (members.length === 0) return null;
+const thisWeekWhere = (weekOf: string, round: number) => ({ weekOf_round: { weekOf, round } });
 
+/**
+ * Chooses a buyer for round `round` of `weekOf`: whoever bought milk longest ago, and anyone who
+ * has never bought beats everyone. Ties are broken at random. Never picks someone already buying
+ * this week. Avoids last week's Sunday buyer (and `excludeId`) whenever anyone else is available.
+ * Returns null if nobody is left to send.
+ */
+async function choose(db: Db, weekOf: string, round: number, excludeId?: number) {
+  const members = await db.member.findMany({ where: { active: true } });
+
+  const lastBought = new Map(
+    (
+      await db.pick.groupBy({
+        by: ["memberId"],
+        where: { weekOf: { lt: weekOf } },
+        _max: { weekOf: true },
+      })
+    ).map((g) => [g.memberId, g._max.weekOf]),
+  );
+  // "" sorts before every YYYY-MM-DD, so the never-bought come first.
+  const lastOf = (id: number) => lastBought.get(id) ?? "";
+
+  const buyingThisWeek = new Set(
+    (await db.pick.findMany({ where: { weekOf } })).map((p) => p.memberId),
+  );
   const previous = await db.pick.findFirst({
-    where: { weekOf: { lt: weekOf } },
+    where: { weekOf: { lt: weekOf }, round: 0 },
     orderBy: { weekOf: "desc" },
   });
 
-  let pool = members.filter(
+  let pool = members.filter((m) => !buyingThisWeek.has(m.id));
+  if (pool.length === 0) return null;
+  const preferred = pool.filter(
     (m) => m.id !== previous?.memberId && m.id !== excludeId,
   );
-  if (pool.length === 0) pool = members;
+  if (preferred.length > 0) pool = preferred;
 
-  const fewest = Math.min(...pool.map((m) => m._count.picks));
-  pool = pool.filter((m) => m._count.picks === fewest);
+  const longestAgo = pool.map((m) => lastOf(m.id)).sort()[0];
+  pool = pool.filter((m) => lastOf(m.id) === longestAgo);
   const chosen = pool[Math.floor(Math.random() * pool.length)]!;
 
   return db.pick.create({
-    data: { weekOf, memberId: chosen.id, decree: pickDecree(chosen.name) },
+    data: { weekOf, round, memberId: chosen.id, decree: pickDecree(chosen.name, round) },
     include: { member: true },
   });
 }
 
+function isUniqueClash(e: unknown) {
+  return e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002";
+}
+
 /**
- * Returns this week's pick, making one if Sunday has come and gone without one. Lazy rather than
- * cron-driven, so the first visitor of the week triggers the choosing.
+ * Returns this week's Sunday pick, making one if Sunday has come and gone without one. Lazy rather
+ * than cron-driven, so the first visitor of the week triggers the choosing.
  */
 export async function ensureCurrentPick(db: PrismaClient) {
   const weekOf = currentWeekOf();
   const existing = await db.pick.findUnique({
-    where: { weekOf },
+    where: thisWeekWhere(weekOf, 0),
     include: { member: true },
   });
   if (existing) return existing;
 
   try {
-    return await choose(db, weekOf);
+    return await choose(db, weekOf, 0);
   } catch (e) {
     // Two visitors raced to make the pick; the other one won.
-    if (
-      e instanceof Prisma.PrismaClientKnownRequestError &&
-      e.code === "P2002"
-    ) {
-      return db.pick.findUnique({ where: { weekOf }, include: { member: true } });
+    if (isUniqueClash(e)) {
+      return db.pick.findUnique({ where: thisWeekWhere(weekOf, 0), include: { member: true } });
     }
     throw e;
   }
 }
 
-/** Throws out this week's pick and chooses someone else. */
-export async function rerollCurrentPick(db: PrismaClient) {
+/** This week's extra buyers, in the order they were summoned. */
+export function currentExtraPicks(db: PrismaClient) {
+  return db.pick.findMany({
+    where: { weekOf: currentWeekOf(), round: { gt: 0 } },
+    orderBy: { round: "asc" },
+    include: { member: true },
+  });
+}
+
+/**
+ * "More milk now!": sends one more member for milk this week. Returns null if everyone is already
+ * buying, and "clash" if someone else summoned an extra buyer at the same moment.
+ */
+export async function addExtraPick(db: PrismaClient) {
+  const main = await ensureCurrentPick(db);
+  if (!main) return null;
+
+  const last = await db.pick.findFirst({
+    where: { weekOf: main.weekOf },
+    orderBy: { round: "desc" },
+  });
+  try {
+    return await choose(db, main.weekOf, (last?.round ?? 0) + 1);
+  } catch (e) {
+    if (isUniqueClash(e)) return "clash" as const;
+    throw e;
+  }
+}
+
+/**
+ * Throws out one of this week's buyers (round 0 is the Sunday pick, 1+ the extras) and chooses
+ * someone else for that slot. The other buyers are kept.
+ */
+export async function rerollCurrentPick(db: PrismaClient, round: number) {
   const weekOf = currentWeekOf();
   return db.$transaction(async (tx) => {
-    const existing = await tx.pick.findUnique({ where: { weekOf } });
-    if (existing) await tx.pick.delete({ where: { id: existing.id } });
-    return choose(tx, weekOf, existing?.memberId);
+    const existing = await tx.pick.findUnique({ where: thisWeekWhere(weekOf, round) });
+    if (!existing) return null;
+    await tx.pick.delete({ where: { id: existing.id } });
+    return choose(tx, weekOf, round, existing.memberId);
   });
 }

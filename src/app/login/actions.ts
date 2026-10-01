@@ -3,13 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { env } from "~/env";
-import {
-  checkPassword,
-  createSessionToken,
-  SESSION_COOKIE,
-  SESSION_MAX_AGE_SECONDS,
-} from "~/server/auth";
+import { checkPassword, newSessionCookie, SESSION_COOKIE } from "~/server/auth";
 
 export async function login(_prev: string | null, formData: FormData) {
   const password = formData.get("password");
@@ -19,13 +13,7 @@ export async function login(_prev: string | null, formData: FormData) {
     return "That is not the word, maggot. The gate stays shut.";
   }
 
-  (await cookies()).set(SESSION_COOKIE, await createSessionToken(), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: env.NODE_ENV === "production",
-    maxAge: SESSION_MAX_AGE_SECONDS,
-    path: "/",
-  });
+  (await cookies()).set(await newSessionCookie());
   redirect("/");
 }
 

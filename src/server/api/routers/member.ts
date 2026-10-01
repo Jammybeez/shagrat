@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { avatarIds } from "~/lib/avatars";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 
 const optionalText = z
@@ -24,6 +25,7 @@ export const memberRouter = createTRPCRouter({
         name: z.string().trim().min(1, "Even orcs have names").max(60),
         favouriteMilk: optionalText,
         excuse: optionalText,
+        avatar: z.enum(avatarIds).optional(),
       }),
     )
     .mutation(({ ctx, input }) => {

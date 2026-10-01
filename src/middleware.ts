@@ -15,6 +15,7 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(new URL("/login", req.url));
 }
 
+// /shagrat and /avatars hold public images. next/image fetches them server-side without the cookie.
 export const config = {
-  matcher: ["/((?!login|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!login|join|_next/static|_next/image|favicon.ico|shagrat/|avatars/).*)"],
 };

@@ -10,6 +10,7 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     SITE_PASSWORD: z.string().min(1),
     AUTH_SECRET: z.string().min(16),
+    SITE_INVITE_KEY: z.string().min(16).optional(),
     SHAGRAT_TIMEZONE: z.string().default("Europe/London"),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -33,6 +34,7 @@ export const env = createEnv({
     DATABASE_URL: process.env.DATABASE_URL,
     SITE_PASSWORD: process.env.SITE_PASSWORD,
     AUTH_SECRET: process.env.AUTH_SECRET,
+    SITE_INVITE_KEY: process.env.SITE_INVITE_KEY,
     SHAGRAT_TIMEZONE: process.env.SHAGRAT_TIMEZONE,
     NODE_ENV: process.env.NODE_ENV,
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
