@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shagrat
 
-## Getting Started
+> *"Shagrat has spoken."*
 
-First, run the development server:
+Shagrat, Captain of the Tower of Cirith Ungol, decides who buys the milk for the team each week.
+There are no appeals.
+
+Built with the [T3 Stack](https://create.t3.gg/): Next.js, tRPC, Prisma (SQLite) and Tailwind.
+
+## How it works
+
+- **The gate**: the whole site sits behind one shared team password (`SITE_PASSWORD`). Entering it
+  sets a signed, httpOnly cookie that lasts 30 days.
+- **The warband**: anyone can add a member. Only the name is required; favourite milk and signature
+  excuse are optional. "Banishing" a member removes them from the rota but keeps their history.
+- **The choosing**: each week starts on Sunday (in `SHAGRAT_TIMEZONE`). The first visit of the week
+  picks a buyer, so no cron job is needed. Picks are fair-ish: the buyer is chosen at random from the
+  members who have bought the fewest times, and last week's buyer is skipped whenever possible.
+- **The Wheel of Doom**: purely theatrical. It is rigged to land on the buyer who has already been
+  chosen.
+- **Re-roll**: if the victim is on holiday, anyone can re-roll this week's pick.
+
+## Getting started
 
 ```bash
+cp .env.example .env      # then set SITE_PASSWORD and AUTH_SECRET
+npm install
+npm run db:migrate        # applies prisma/migrations to the SQLite db
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Generate an `AUTH_SECRET` with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploying
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+SQLite needs a persistent disk, so host it somewhere with one (a VPS, Fly.io with a volume,
+Railway, etc.), not on serverless Vercel. Run `npm run db:migrate && npm run build && npm start`.

@@ -1,15 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
+    output   = "../generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "sqlite"
+    url      = env("DATABASE_URL")
 }
 
-model User {
-  id             Int      @id @default(autoincrement())
-  userName       String
-  lastPurchase   DateTime @default(now())
-  totalPurchases Int
+/// A member of the warband, eligible to be sent for milk.
+model Member {
+    id            Int      @id @default(autoincrement())
+    name          String
+    favouriteMilk String?
+    excuse        String?
+    // Avatar id: a file name (no extension) in public/avatars, see src/lib/avatars.ts.
+    avatar        String?
+    // Retired members keep their history but are never picked again.
+    active        Boolean  @default(true)
+    createdAt     DateTime @default(now())
+    picks         Pick[]
+}
+
+/// A buyer for a week. weekOf is the Sunday that starts the week (YYYY-MM-DD).
+/// round 0 is the Sunday pick; 1, 2, ... are extra buyers summoned with "More milk now!".
+model Pick {
+    id        Int      @id @default(autoincrement())
+    weekOf    String
+    round     Int      @default(0)
+    decree    String
+    memberId  Int
+    member    Member   @relation(fields: [memberId], references: [id])
+    createdAt DateTime @default(now())
+
+    @@unique([weekOf, round])
+    @@index([memberId])
 }
